@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skyline Architect 2D - 모던 물리 건축 시뮬레이터</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(56, 189, 248, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #1e293b;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Top HUD */
+        .hud-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .status-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 12px 24px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .character-portrait {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+        }
+
+        .stat-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #f8fafc;
+        }
+
+        /* Controls Panel */
+        .mode-selector {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            padding: 6px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: auto;
+        }
+
+        .btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            color: #f8fafc;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #0284c7, #2563eb);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-action {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s ease;
+            pointer-events: auto;
+        }
+
+        .btn-action:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+        }
+
+        /* Overlay Notice */
+        .overlay-card {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 32px 48px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            display: none;
+            pointer-events: auto;
+        }
+
+        .overlay-card h2 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: #f8fafc;
+        }
+
+        .overlay-card p {
+            color: #94a3b8;
+            margin-bottom: 24px;
+        }
+
+        .overlay-btn {
+            background: linear-gradient(135deg, #38bdf8, #2563eb);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+        }
+
+        /* Sub Instruction */
+        .instruction-hint {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 13px;
+            color: #cbd5e1;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+
+        <!-- HUD -->
+        <div class="hud-panel">
+            <div class="status-card">
+                <div class="character-portrait" id="bau-emotion">👷‍♂️</div>
+                <div class="stat-group">
+                    <span class="stat-label">건축가 바우</span>
+                    <span class="stat-value" id="status-text">정상 배치 중</span>
+                </div>
+            </div>
+
+            <div class="status-card">
+                <div class="stat-group" style="text-align: right;">
+                    <span class="stat-label" id="score-label">현재 높이 / 점수</span>
+                    <span class="stat-value" id="score-val">0m</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="instruction-hint" id="hint-text">화면을 클릭하거나 스페이스바를 눌러 블록을 낙하하세요!</div>
+
+        <!-- Mode Selector -->
+        <div class="mode-selector">
+            <button class="btn active" onclick="switchMode('stack')">🏢 타워 적층</button>
+            <button class="btn" onclick="switchMode('bridge')">🌉 트러스 다리</button>
+            <button class="btn" onclick="switchMode('sandbox')">🏙️ 샌드박스</button>
+        </div>
+
+        <button class="btn-action" id="action-btn" onclick="handleMainAction()">실행하기</button>
+
+        <!-- Game Over / Victory Overlay -->
+        <div class="overlay-card" id="overlay">
+            <h2 id="overlay-title">건물이 무너졌습니다!</h2>
+            <p id="overlay-msg">최종 높이: 0m</p>
+            <button class="overlay-btn" onclick="resetCurrentGame()">다시 도전하기</button>
+        </div>
+    </div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const bauEmotion = document.getElementById('bau-emotion');
+const statusText = document.getElementById('status-text');
+const scoreVal = document.getElementById('score-val');
+const scoreLabel = document.getElementById('score-label');
+const hintText = document.getElementById('hint-text');
+const overlay = document.getElementById('overlay');
+const overlayTitle = document.getElementById('overlay-title');
+const overlayMsg = document.getElementById('overlay-msg');
+const actionBtn = document.getElementById('action-btn');
+
+// System State
+let currentMode = 'stack'; // 'stack', 'bridge', 'sandbox'
+let animationFrameId = null;
+
+// Sound Synthesizer (Web Audio API)
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+function initAudio() {
+    if (!audioCtx) audioCtx = new AudioContext();
+}
+
+function playSound(type) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    const now = audioCtx.currentTime;
+
+    if (type === 'drop') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.15);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+        osc.start(now);
+        osc.stop(now + 0.15);
+    } else if (type === 'perfect') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+        osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+    } else if (type === 'fail') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.4);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now);
+        osc.stop(now + 0.4);
+    }
+}
+
+/* ==========================================================================
+   1. TOWER STACKING MODE (물리 무게중심 & 기울어짐)
+   ========================================================================== */
+let stackState = {
+    blocks: [],
+    currentBlock: null,
+    score: 0,
+    cameraY: 0,
+    targetCameraY: 0,
+    gameOver: false,
+    tiltAngle: 0,
+    tiltVelocity: 0,
+    wind: 0
+};
+
+function initStackMode() {
+    stackState = {
+        blocks: [{ x: 300, y: 520, w: 200, h: 40, color: '#0ea5e9' }],
+        currentBlock: createNewStackBlock(200, 0),
+        score: 0,
+        cameraY: 0,
+        targetCameraY: 0,
+        gameOver: false,
+        tiltAngle: 0,
+        tiltVelocity: 0,
+        wind: (Math.random() - 0.5) * 1.5
+    };
+    updateHUD('👷‍♂️', '안전 모자 착용 완료!', '0m', '현재 건물 높이');
+    hintText.innerText = "화면을 클릭하거나 스페이스바를 눌러 블록을 떨어뜨리세요!";
+    actionBtn.innerText = "블록 낙하";
+    overlay.style.display = 'none';
+}
+
+function createNewStackBlock(w, score) {
+    const speed = 3.5 + Math.min(score * 0.2, 6);
+    return {
+        x: 100,
+        y: 120,
+        w: w,
+        h: 36,
+        vx: speed,
+        color: `hsl(${(score * 35) % 360}, 85%, 60%)`
+    };
+}
+
+function dropStackBlock() {
+    if (stackState.gameOver) return;
+    initAudio();
+
+    const cb = stackState.currentBlock;
+    const prev = stackState.blocks[stackState.blocks.length - 1];
+
+    // Calc Center of Mass & Overlap
+    const overlapStart = Math.max(cb.x, prev.x);
+    const overlapEnd = Math.min(cb.x + cb.w, prev.x + prev.w);
+    const overlapW = overlapEnd - overlapStart;
+
+    if (overlapW > 10) {
+        // Calculate Alignment Quality
+        const centerDiff = Math.abs((cb.x + cb.w / 2) - (prev.x + prev.w / 2));
+        
+        if (centerDiff < 6) {
+            playSound('perfect');
+            bauEmotion.innerText = '🤩';
+            statusText.innerText = 'PERFECT! 완벽한 적층!';
+            cb.x = prev.x; // Auto align
+        } else {
+            playSound('drop');
+            bauEmotion.innerText = '👷‍♂️';
+            statusText.innerText = '좋은 균형입니다!';
+            cb.x = overlapStart;
+            cb.w = overlapW;
+        }
+
+        cb.y = prev.y - cb.h;
+        stackState.blocks.push(cb);
+        stackState.score += 1;
+
+        // Shift Camera
+        if (cb.y - stackState.targetCameraY < 300) {
+            stackState.targetCameraY += cb.h;
+        }
+
+        // Check Structural Physics (Center of Gravity)
+        calculatePhysicsTilt();
+
+        // Spawn Next
+        stackState.wind = (Math.random() - 0.5) * (1.5 + stackState.score * 0.1);
+        stackState.currentBlock = createNewStackBlock(cb.w, stackState.score);
+        scoreVal.innerText = (stackState.score * 3.2).toFixed(1) + 'm';
+
+    } else {
+        // Drop Failed
+        playSound('fail');
+        stackState.gameOver = true;
+        bauEmotion.innerText = '😱';
+        statusText.innerText = '건물이 균형을 잃었습니다!';
+        showOverlay('건물이 무너졌습니다!', `최종 높이: ${(stackState.score * 3.2).toFixed(1)}m`);
+    }
+}
+
+function calculatePhysicsTilt() {
+    const blocks = stackState.blocks;
+    if (blocks.length < 3) return;
+
+    // Calculate Total Center of Mass X
+    let totalMass = 0;
+    let sumX = 0;
+
+    for (let b of blocks) {
+        let mass = b.w;
+        totalMass += mass;
+        sumX += (b.x + b.w / 2) * mass;
+    }
+
+    let comX = sumX / totalMass;
+    let baseCenterX = blocks[0].x + blocks[0].w / 2;
+    let offset = comX - baseCenterX;
+
+    stackState.tiltVelocity += (offset * 0.0001) + (stackState.wind * 0.0005);
+}
+
+function updateStackMode() {
+    const cb = stackState.currentBlock;
+    if (!stackState.gameOver && cb) {
+        cb.x += cb.vx + stackState.wind;
+        if (cb.x < 50 || cb.x + cb.w > 750) {
+            cb.vx *= -1;
+        }
+    }
+
+    // Camera Ease
+    stackState.cameraY += (stackState.targetCameraY - stackState.cameraY) * 0.1;
+
+    // Physics Tilt Simulation
+    if (stackState.blocks.length > 2) {
+        stackState.tiltAngle += stackState.tiltVelocity;
+        stackState.tiltVelocity *= 0.98;
+
+        if (Math.abs(stackState.tiltAngle) > 0.35 && !stackState.gameOver) {
+            playSound('fail');
+            stackState.gameOver = true;
+            bauEmotion.innerText = '💥';
+            statusText.innerText = '무게중심 붕괴!';
+            showOverlay('건물이 기울어져 무너졌습니다!', `최종 높이: ${(stackState.score * 3.2).toFixed(1)}m`);
+        }
+    }
+
+    // Draw Stack Mode
+    ctx.save();
+    drawModernBackground();
+
+    ctx.translate(0, stackState.cameraY);
+
+    // Pivot Tilt applied to stack
+    let base = stackState.blocks[0];
+    if (base) {
+        ctx.translate(base.x + base.w / 2, base.y + base.h);
+        ctx.rotate(stackState.tiltAngle);
+        ctx.translate(-(base.x + base.w / 2), -(base.y + base.h));
+    }
+
+    // Draw Stacked Blocks
+    stackState.blocks.forEach((b, idx) => {
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.roundRect(b.x, b.y, b.w, b.h, 6);
+        ctx.fill();
+
+        // Glass reflection / stroke
+        ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Windows
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        let windowCols = Math.floor(b.w / 20);
+        for (let i = 0; i < windowCols; i++) {
+            ctx.fillRect(b.x + 8 + i * 18, b.y + 8, 10, 18);
+        }
+    });
+
+    // Draw Bau Character on top block
+    let topBlock = stackState.blocks[stackState.blocks.length - 1];
+    drawBauCharacter(topBlock.x + topBlock.w / 2, topBlock.y - 25);
+
+    // Draw Current Moving Block
+    if (!stackState.gameOver && cb) {
+        ctx.restore(); // Undo pivot for moving crane block
+        ctx.save();
+        ctx.translate(0, stackState.cameraY);
+
+        // Crane Wire
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cb.x + cb.w / 2, -200);
+        ctx.lineTo(cb.x + cb.w / 2, cb.y);
+        ctx.stroke();
+
+        ctx.fillStyle = cb.color;
+        ctx.beginPath();
+        ctx.roundRect(cb.x, cb.y, cb.w, cb.h, 6);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+    }
+
+    ctx.restore();
+}
+
+/* ==========================================================================
+   2. TRUSS BRIDGE MODE (물리 하중 테스트)
+   ========================================================================== */
+let bridgeState = {
+    nodes: [],
+    beams: [],
+    truckX: 50,
+    testing: false,
+    passed: false,
+    failed: false
+};
+
+function initBridgeMode() {
+    bridgeState = {
+        nodes: [
+            { x: 100, y: 400, fixed: true },
+            { x: 250, y: 400, fixed: false },
+            { x: 400, y: 400, fixed: false },
+            { x: 550, y: 400, fixed: false },
+            { x: 700, y: 400, fixed: true },
+            // Upper support points
+            { x: 250, y: 280, fixed: false },
+            { x: 550, y: 280, fixed: false }
+        ],
+        beams: [
+            { n1: 0, n2: 1, stress: 0 },
+            { n1: 1, n2: 2, stress: 0 },
+            { n1: 2, n2: 3, stress: 0 },
+            { n1: 3, n2: 4, stress: 0 },
+            { n1: 0, n2: 5, stress: 0 },
+            { n1: 1, n2: 5, stress: 0 },
+            { n1: 2, n2: 5, stress: 0 },
+            { n1: 2, n2: 6, stress: 0 },
+            { n1: 3, n2: 6, stress: 0 },
+            { n1: 4, n2: 6, stress: 0 },
+            { n1: 5, n2: 6, stress: 0 }
+        ],
+        truckX: 50,
+        testing: false,
+        passed: false,
+        failed: false
+    };
+    updateHUD('🚚', '트럭 하중 검증 준비', '0%', '다리 한계 변형률');
+    hintText.innerText = "실행 버튼을 눌러 트럭 하중 테스트를 시작하세요!";
+    actionBtn.innerText = "하중 테스트 시작";
+    overlay.style.display = 'none';
+}
+
+function startBridgeTest() {
+    if (bridgeState.testing) return;
+    initAudio();
+    bridgeState.testing = true;
+    bridgeState.truckX = 50;
+    statusText.innerText = "트럭 진입 중... 하중 계산 중";
+}
+
+function updateBridgeMode() {
+    ctx.save();
+    drawModernBackground();
+
+    // Draw Cliff / Water Gap
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 400, 120, 200);
+    ctx.fillRect(680, 400, 120, 200);
+
+    ctx.fillStyle = '#0284c7';
+    ctx.fillRect(120, 500, 560, 100); // Water
+
+    // Draw Beams with Stress Colors
+    bridgeState.beams.forEach(b => {
+        let n1 = bridgeState.nodes[b.n1];
+        let n2 = bridgeState.nodes[b.n2];
+
+        let stressRatio = Math.min(b.stress / 100, 1.0);
+        let color = `hsl(${120 - stressRatio * 120}, 90%, 50%)`;
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(n1.x, n1.y);
+        ctx.lineTo(n2.x, n2.y);
+        ctx.stroke();
+    });
+
+    // Draw Nodes
+    bridgeState.nodes.forEach(n => {
+        ctx.fillStyle = n.fixed ? '#ef4444' : '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
+
+    // Truck Motion & Stress Physics Simulation
+    if (bridgeState.testing && !bridgeState.failed) {
+        bridgeState.truckX += 2.5;
+
+        // Apply load to nearby deck nodes
+        let maxStress = 0;
+        bridgeState.nodes.forEach((n, idx) => {
+            if (!n.fixed) {
+                let dist = Math.abs(n.x - bridgeState.truckX);
+                if (dist < 80) {
+                    let load = (1 - dist / 80) * 12;
+                    n.y = 400 + load; // Sagging physics
+                } else {
+                    n.y += (400 - n.y) * 0.1;
+                }
+            }
+        });
+
+        // Compute Beam Stresses
+        bridgeState.beams.forEach(b => {
+            let n1 = bridgeState.nodes[b.n1];
+            let n2 = bridgeState.nodes[b.n2];
+            let currentLen = Math.hypot(n2.x - n1.x, n2.y - n1.y);
+            let stress = Math.abs(currentLen - 150) * 12;
+            b.stress = stress;
+            if (stress > maxStress) maxStress = stress;
+        });
+
+        scoreVal.innerText = Math.min(Math.round((maxStress / 120) * 100), 100) + '%';
+
+        if (maxStress > 115) {
+            playSound('fail');
+            bridgeState.failed = true;
+            bauEmotion.innerText = '😱';
+            statusText.innerText = '트러스 하중 초과로 파괴되었습니다!';
+            showOverlay('다리가 무너졌습니다!', '구조 보강이 필요합니다.');
+        }
+
+        if (bridgeState.truckX > 720 && !bridgeState.passed) {
+            playSound('perfect');
+            bridgeState.passed = true;
+            bauEmotion.innerText = '🎉';
+            statusText.innerText = '테스트 통과! 안전한 트러스 다리입니다.';
+            showOverlay('다리 건설 성공!', '트럭이 안전하게 통과했습니다.');
+        }
+    }
+
+    // Draw Truck
+    drawTruck(bridgeState.truckX, 375);
+
+    ctx.restore();
+}
+
+function drawTruck(x, y) {
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.roundRect(x - 30, y, 50, 22, 4);
+    ctx.fill();
+
+    // Cabin
+    ctx.fillStyle = '#3b82f6';
+    ctx.beginPath();
+    ctx.roundRect(x + 5, y - 10, 20, 20, 4);
+    ctx.fill();
+
+    // Wheels
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(x - 18, y + 22, 6, 0, Math.PI * 2);
+    ctx.arc(x + 12, y + 22, 6, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+/* ==========================================================================
+   3. CITY BLUEPRINT SANDBOX MODE
+   ========================================================================== */
+let sandboxState = {
+    grid: Array(12).fill(null).map(() => Array(16).fill(0)),
+    selectedTile: 1
+};
+
+function initSandboxMode() {
+    sandboxState.grid = Array(12).fill(null).map(() => Array(16).fill(0));
+    updateHUD('🏙️', '자유 도면 배치 모드', '0개', '배치된 건축물');
+    hintText.innerText = "마우스로 그리드를 클릭하여 나만의 도시를 디자인하세요!";
+    actionBtn.innerText = "도면 초기화";
+    overlay.style.display = 'none';
+}
+
+function updateSandboxMode() {
+    ctx.save();
+    drawModernBackground();
+
+    const cols = 16;
+    const rows = 12;
+    const cellW = 800 / cols;
+    const cellH = 500 / rows;
+
+    // Draw Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let r = 0; r <= rows; r++) {
+        ctx.beginPath();
+        ctx.moveTo(0, r * cellH);
+        ctx.lineTo(800, r * cellH);
+        ctx.stroke();
+    }
+    for (let c = 0; c <= cols; c++) {
+        ctx.beginPath();
+        ctx.moveTo(c * cellW, 0);
+        ctx.lineTo(c * cellW, 500);
+        ctx.stroke();
+    }
+
+    // Render Placed Tiles
+    let count = 0;
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            let val = sandboxState.grid[r][c];
+            if (val > 0) {
+                count++;
+                ctx.fillStyle = val === 1 ? '#38bdf8' : (val === 2 ? '#10b981' : '#f59e0b');
+                ctx.beginPath();
+                ctx.roundRect(c * cellW + 2, r * cellH + 2, cellW - 4, cellH - 4, 6);
+                ctx.fill();
+            }
+        }
+    }
+
+    scoreVal.innerText = count + '개';
+    ctx.restore();
+}
+
+function handleSandboxClick(e) {
+    if (currentMode !== 'sandbox') return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (y > 500) return;
+
+    const col = Math.floor(x / (800 / 16));
+    const row = Math.floor(y / (500 / 12));
+
+    initAudio();
+    playSound('drop');
+    sandboxState.grid[row][col] = (sandboxState.grid[row][col] + 1) % 4;
+}
+
+/* ==========================================================================
+   COMMON VISUALS & ENGINE LOOP
+   ========================================================================== */
+function drawModernBackground() {
+    // Sky Gradient
+    let grad = ctx.createLinearGradient(0, 0, 0, 600);
+    grad.addColorStop(0, '#0f172a');
+    grad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 800, 600);
+
+    // Subtle City Skyline Silhouette
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.fillRect(50, 350, 90, 250);
+    ctx.fillRect(180, 280, 110, 320);
+    ctx.fillRect(450, 320, 130, 280);
+    ctx.fillRect(620, 240, 100, 360);
+}
+
+function drawBauCharacter(x, y) {
+    // Bau Head
+    ctx.fillStyle = '#fde047'; // Safety Helmet
+    ctx.beginPath();
+    ctx.arc(x, y - 8, 12, Math.PI, 0);
+    ctx.fill();
+
+    ctx.fillStyle = '#fed7aa'; // Face
+    ctx.beginPath();
+    ctx.arc(x, y - 2, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eyes
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(x - 4, y - 4, 2, 3);
+    ctx.fillRect(x + 2, y - 4, 2, 3);
+
+    // Vest / Body
+    ctx.fillStyle = '#f97316';
+    ctx.fillRect(x - 8, y + 7, 16, 12);
+}
+
+function updateHUD(emoji, status, score, label) {
+    bauEmotion.innerText = emoji;
+    statusText.innerText = status;
+    scoreVal.innerText = score;
+    scoreLabel.innerText = label;
+}
+
+function showOverlay(title, msg) {
+    overlayTitle.innerText = title;
+    overlayMsg.innerText = msg;
+    overlay.style.display = 'block';
+}
+
+function switchMode(mode) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-selector .btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    if (mode === 'stack') initStackMode();
+    else if (mode === 'bridge') initBridgeMode();
+    else if (mode === 'sandbox') initSandboxMode();
+}
+
+function handleMainAction() {
+    if (currentMode === 'stack') dropStackBlock();
+    else if (currentMode === 'bridge') startBridgeTest();
+    else if (currentMode === 'sandbox') initSandboxMode();
+}
+
+function resetCurrentGame() {
+    if (currentMode === 'stack') initStackMode();
+    else if (currentMode === 'bridge') initBridgeMode();
+    else if (currentMode === 'sandbox') initSandboxMode();
+}
+
+// Global Event Listeners
+canvas.addEventListener('click', (e) => {
+    if (currentMode === 'stack') dropStackBlock();
+    else if (currentMode === 'sandbox') handleSandboxClick(e);
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        handleMainAction();
+    }
+});
+
+// Master Game Loop
+function mainLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (currentMode === 'stack') updateStackMode();
+    else if (currentMode === 'bridge') updateBridgeMode();
+    else if (currentMode === 'sandbox') updateSandboxMode();
+
+    animationFrameId = requestAnimationFrame(mainLoop);
+}
+
+// Start Simulator
+initStackMode();
+mainLoop();
+</script>
+</body>
+</html>
